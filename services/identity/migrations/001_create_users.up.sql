@@ -1,6 +1,6 @@
 -- Tabla principal de usuarios del sistema Tinta.
 -- Vive en el esquema 'identity' (configurado en search_path por el servicio).
-
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS users (
     id              UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email           VARCHAR(255) NOT NULL UNIQUE,

@@ -1,6 +1,6 @@
 -- Recommendations produced by ML models. Each row associates a user with a
 -- book and includes a score, source cluster, and the user's feedback.
-
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS recommendations (
     id              UUID         PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id         UUID         NOT NULL,
