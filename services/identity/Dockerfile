@@ -23,6 +23,10 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/identity ./cmd/ap
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
+
 COPY --from=builder /out/identity /app/identity
+COPY keys /app/keys
+
 EXPOSE 8001
+
 ENTRYPOINT ["/app/identity"]

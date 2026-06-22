@@ -22,5 +22,7 @@ FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=builder /out/recommendations /app/recommendations
+COPY keys /app/keys
+
 EXPOSE 8003
 ENTRYPOINT ["/app/recommendations"]
