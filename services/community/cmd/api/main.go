@@ -1,6 +1,6 @@
 // Community service entrypoint.
 //
-// This service handles reading clubs and their discussions.
+// This service handles reading clubs, members and discussions.
 // It does NOT sign JWTs; it only verifies them with the public key
 // produced by the Identity service.
 package main
@@ -16,6 +16,16 @@ import (
 	clubApp "github.com/tinta/community/internal/club/application"
 	clubHTTP "github.com/tinta/community/internal/club/infrastructure/http"
 	clubPG "github.com/tinta/community/internal/club/infrastructure/postgres"
+
+	// Turno 2 — member module
+	memberApp "github.com/tinta/community/internal/member/application"
+	memberHTTP "github.com/tinta/community/internal/member/infrastructure/http"
+	memberPG "github.com/tinta/community/internal/member/infrastructure/postgres"
+
+	// Turno 2 — discussion module
+	discApp "github.com/tinta/community/internal/discussion/application"
+	discHTTP "github.com/tinta/community/internal/discussion/infrastructure/http"
+	discPG "github.com/tinta/community/internal/discussion/infrastructure/postgres"
 
 	"github.com/tinta/community/internal/platform/config"
 	"github.com/tinta/community/internal/platform/database"
@@ -54,7 +64,7 @@ func run() error {
 		return fmt.Errorf("load jwt verifier: %w", err)
 	}
 
-	// Club module
+	// ---------- Club module ----------
 	clubRepo := clubPG.NewClubRepository(pool)
 	createUC := clubApp.NewCreateClubUseCase(clubRepo)
 	listUC := clubApp.NewListClubsUseCase(clubRepo)
@@ -63,13 +73,32 @@ func run() error {
 	deleteUC := clubApp.NewDeleteClubUseCase(clubRepo)
 	clubHandler := clubHTTP.NewHandler(createUC, listUC, getUC, updateUC, deleteUC)
 
-	// HTTP server
+	// ---------- Turno 2 · Member module ----------
+	memberRepo := memberPG.NewMemberRepository(pool)
+	joinUC := memberApp.NewJoinClubUseCase(memberRepo)
+	leaveUC := memberApp.NewLeaveClubUseCase(memberRepo)
+	listClubMembersUC := memberApp.NewListClubMembersUseCase(memberRepo)
+	listMyClubsUC := memberApp.NewListMyClubsUseCase(memberRepo)
+	checkMembershipUC := memberApp.NewCheckMembershipUseCase(memberRepo)
+	memberHandler := memberHTTP.NewHandler(joinUC, leaveUC, listClubMembersUC, listMyClubsUC, checkMembershipUC)
+
+	// ---------- Turno 2 · Discussion module ----------
+	discRepo := discPG.NewDiscussionRepository(pool)
+	postDiscUC := discApp.NewPostDiscussionUseCase(discRepo, memberRepo)
+	listDiscUC := discApp.NewListDiscussionsUseCase(discRepo, memberRepo)
+	updateDiscUC := discApp.NewUpdateDiscussionUseCase(discRepo)
+	deleteDiscUC := discApp.NewDeleteDiscussionUseCase(discRepo)
+	discHandler := discHTTP.NewHandler(postDiscUC, listDiscUC, updateDiscUC, deleteDiscUC)
+
+	// ---------- HTTP server ----------
 	app := server.New("community")
 	v1 := app.Group("/api/v1")
 	authMW := middleware.RequireAuth(verifier)
 	clubHandler.Register(v1, authMW)
+	memberHandler.Register(v1, authMW)
+	discHandler.Register(v1, authMW)
 
-	// Graceful shutdown
+	// ---------- Graceful shutdown ----------
 	go func() {
 		if err := app.Listen(fmt.Sprintf(":%d", cfg.HTTPPort)); err != nil {
 			log.Error().Err(err).Msg("server stopped")
