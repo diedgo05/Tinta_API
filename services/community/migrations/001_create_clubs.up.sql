@@ -1,4 +1,3 @@
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS clubs (
     id           UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     creator_id   UUID NOT NULL,           -- references identity.users (cross-schema, no FK)

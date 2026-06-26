@@ -3,18 +3,24 @@ FROM golang:1.22-alpine AS builder
 
 WORKDIR /workspace
 
-# Copy go workspace and module manifests first for better layer caching
 COPY go.work ./
 COPY shared/go.mod shared/
 COPY services/identity/go.mod services/identity/
 COPY services/community/go.mod services/community/
 COPY services/recommendations/go.mod services/recommendations/
+COPY services/catalog/go.mod services/catalog/
+COPY services/reading/go.mod services/reading/
+COPY services/knowledge/go.mod services/knowledge/
+COPY services/notifications/go.mod services/notifications/
 
-# Now copy source code
 COPY shared/ shared/
 COPY services/identity/ services/identity/
 COPY services/community/ services/community/
 COPY services/recommendations/ services/recommendations/
+COPY services/catalog/ services/catalog/
+COPY services/reading/ services/reading/
+COPY services/knowledge/ services/knowledge/
+COPY services/notifications/ services/notifications/
 
 WORKDIR /workspace/services/identity
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/identity ./cmd/api
@@ -23,10 +29,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o /out/identity ./cmd/ap
 FROM alpine:3.19
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
-
 COPY --from=builder /out/identity /app/identity
 COPY keys /app/keys
-
 EXPOSE 8001
-
 ENTRYPOINT ["/app/identity"]

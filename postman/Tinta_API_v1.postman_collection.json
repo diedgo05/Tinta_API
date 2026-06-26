@@ -1,0 +1,462 @@
+{
+  "info": {
+    "name": "Tinta API · v1 (Completa)",
+    "description": "Colección completa con los 7 microservicios:\n\n- **Identity** (8001) — Auth, usuarios\n- **Community** (8002) — Clubes de lectura\n- **Recommendations** (8003) — Recomendaciones ML\n- **Catalog** (8004) — Libros y géneros ⭐\n- **Reading** (8005) — Progreso y anotaciones ⭐\n- **Knowledge** (8006) — Temas y fragmentos RAG ⭐\n- **Notifications** (8007) — Notificaciones in-app ⭐\n\nAuto-guarda tokens en el login. Usa el entorno 'Tinta Local' o 'Tinta Railway'.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{access_token}}", "type": "string" }]
+  },
+  "item": [
+    {
+      "name": "Health Checks",
+      "item": [
+        { "name": "Identity",        "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{identity_url}}/health", "host": ["{{identity_url}}"], "path": ["health"] } } },
+        { "name": "Community",       "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{community_url}}/health", "host": ["{{community_url}}"], "path": ["health"] } } },
+        { "name": "Recommendations", "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{recommendations_url}}/health", "host": ["{{recommendations_url}}"], "path": ["health"] } } },
+        { "name": "Catalog",         "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{catalog_url}}/health", "host": ["{{catalog_url}}"], "path": ["health"] } } },
+        { "name": "Reading",         "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{reading_url}}/health", "host": ["{{reading_url}}"], "path": ["health"] } } },
+        { "name": "Knowledge",       "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{knowledge_url}}/health", "host": ["{{knowledge_url}}"], "path": ["health"] } } },
+        { "name": "Notifications",   "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{notifications_url}}/health", "host": ["{{notifications_url}}"], "path": ["health"] } } }
+      ]
+    },
+
+    {
+      "name": "1. Auth (Identity)",
+      "item": [
+        {
+          "name": "Login (Admin Adrian)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) {",
+            "  const j = pm.response.json();",
+            "  pm.environment.set('access_token', j.access_token);",
+            "  pm.environment.set('refresh_token', j.refresh_token);",
+            "  console.log('✅ Tokens saved');",
+            "}"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"adrian@tinta.app\",\n  \"password\": \"admin123\"\n}" },
+            "url": { "raw": "{{identity_url}}/api/v1/auth/login", "host": ["{{identity_url}}"], "path": ["api","v1","auth","login"] }
+          }
+        },
+        {
+          "name": "Refresh Tokens",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) {",
+            "  const j = pm.response.json();",
+            "  pm.environment.set('access_token', j.access_token);",
+            "  pm.environment.set('refresh_token', j.refresh_token);",
+            "}"
+          ] } }],
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}" },
+            "url": { "raw": "{{identity_url}}/api/v1/auth/refresh", "host": ["{{identity_url}}"], "path": ["api","v1","auth","refresh"] }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"refresh_token\": \"{{refresh_token}}\"\n}" },
+            "url": { "raw": "{{identity_url}}/api/v1/auth/logout", "host": ["{{identity_url}}"], "path": ["api","v1","auth","logout"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "2. Users (Identity)",
+      "item": [
+        {
+          "name": "Register (Public)",
+          "request": {
+            "auth": { "type": "noauth" }, "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"email\": \"test@tinta.app\",\n  \"password\": \"test1234\",\n  \"name\": \"Test User\",\n  \"language\": \"es\"\n}" },
+            "url": { "raw": "{{identity_url}}/api/v1/users", "host": ["{{identity_url}}"], "path": ["api","v1","users"] }
+          }
+        },
+        {
+          "name": "Get My Profile",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) { pm.environment.set('user_id', pm.response.json().id); }"
+          ] } }],
+          "request": { "method": "GET", "url": { "raw": "{{identity_url}}/api/v1/users/me", "host": ["{{identity_url}}"], "path": ["api","v1","users","me"] } }
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Nombre actualizado\",\n  \"language\": \"es\"\n}" },
+            "url": { "raw": "{{identity_url}}/api/v1/users/me", "host": ["{{identity_url}}"], "path": ["api","v1","users","me"] }
+          }
+        },
+        {
+          "name": "Delete My Account",
+          "request": { "method": "DELETE", "url": { "raw": "{{identity_url}}/api/v1/users/me", "host": ["{{identity_url}}"], "path": ["api","v1","users","me"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "3. Clubs (Community)",
+      "item": [
+        {
+          "name": "Create Club",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) { pm.environment.set('club_id', pm.response.json().id); }"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Cien años de soledad\",\n  \"description\": \"Lectura colectiva del clásico\",\n  \"is_private\": false\n}" },
+            "url": { "raw": "{{community_url}}/api/v1/clubs", "host": ["{{community_url}}"], "path": ["api","v1","clubs"] }
+          }
+        },
+        {
+          "name": "List Public Clubs",
+          "request": { "method": "GET", "url": { "raw": "{{community_url}}/api/v1/clubs?page=1&page_size=20", "host": ["{{community_url}}"], "path": ["api","v1","clubs"], "query": [{"key":"page","value":"1"},{"key":"page_size","value":"20"}] } }
+        },
+        {
+          "name": "Get Club by ID",
+          "request": { "method": "GET", "url": { "raw": "{{community_url}}/api/v1/clubs/{{club_id}}", "host": ["{{community_url}}"], "path": ["api","v1","clubs","{{club_id}}"] } }
+        },
+        {
+          "name": "Update Club",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Descripción actualizada\"\n}" },
+            "url": { "raw": "{{community_url}}/api/v1/clubs/{{club_id}}", "host": ["{{community_url}}"], "path": ["api","v1","clubs","{{club_id}}"] }
+          }
+        },
+        {
+          "name": "Delete Club",
+          "request": { "method": "DELETE", "url": { "raw": "{{community_url}}/api/v1/clubs/{{club_id}}", "host": ["{{community_url}}"], "path": ["api","v1","clubs","{{club_id}}"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "4. Recommendations",
+      "item": [
+        {
+          "name": "List My Recommendations",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) {",
+            "  const j = pm.response.json();",
+            "  if (j.items && j.items.length > 0) { pm.environment.set('recommendation_id', j.items[0].id); }",
+            "}"
+          ] } }],
+          "request": { "method": "GET", "url": { "raw": "{{recommendations_url}}/api/v1/recommendations?page=1&page_size=20", "host": ["{{recommendations_url}}"], "path": ["api","v1","recommendations"], "query": [{"key":"page","value":"1"},{"key":"page_size","value":"20"}] } }
+        },
+        {
+          "name": "Submit Feedback (Like)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"feedback\": \"like\"\n}" },
+            "url": { "raw": "{{recommendations_url}}/api/v1/recommendations/{{recommendation_id}}/feedback", "host": ["{{recommendations_url}}"], "path": ["api","v1","recommendations","{{recommendation_id}}","feedback"] }
+          }
+        },
+        {
+          "name": "Dismiss Recommendation",
+          "request": { "method": "DELETE", "url": { "raw": "{{recommendations_url}}/api/v1/recommendations/{{recommendation_id}}", "host": ["{{recommendations_url}}"], "path": ["api","v1","recommendations","{{recommendation_id}}"] } }
+        },
+        {
+          "name": "Regenerate",
+          "request": { "method": "POST", "url": { "raw": "{{recommendations_url}}/api/v1/recommendations/regenerate", "host": ["{{recommendations_url}}"], "path": ["api","v1","recommendations","regenerate"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "5. Catalog · Books",
+      "description": "Libros del catálogo. List/Get son públicos; Create/Update/Delete requieren auth.",
+      "item": [
+        {
+          "name": "Create Book",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) { pm.environment.set('book_id', pm.response.json().id); }"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"title\": \"Cien años de soledad\",\n  \"author\": \"Gabriel García Márquez\",\n  \"synopsis\": \"La saga de la familia Buendía\",\n  \"total_pages\": 471,\n  \"license\": \"copyrighted\",\n  \"language\": \"es\",\n  \"published_year\": 1967\n}" },
+            "url": { "raw": "{{catalog_url}}/api/v1/books", "host": ["{{catalog_url}}"], "path": ["api","v1","books"] }
+          }
+        },
+        {
+          "name": "List Books",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{catalog_url}}/api/v1/books?page=1&page_size=20", "host": ["{{catalog_url}}"], "path": ["api","v1","books"], "query": [{"key":"page","value":"1"},{"key":"page_size","value":"20"},{"key":"search","value":"","disabled":true},{"key":"genre_id","value":"","disabled":true}] } }
+        },
+        {
+          "name": "Get Book by ID",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{catalog_url}}/api/v1/books/{{book_id}}", "host": ["{{catalog_url}}"], "path": ["api","v1","books","{{book_id}}"] } }
+        },
+        {
+          "name": "Update Book",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"synopsis\": \"Sinopsis actualizada\",\n  \"total_pages\": 500\n}" },
+            "url": { "raw": "{{catalog_url}}/api/v1/books/{{book_id}}", "host": ["{{catalog_url}}"], "path": ["api","v1","books","{{book_id}}"] }
+          }
+        },
+        {
+          "name": "Delete Book",
+          "request": { "method": "DELETE", "url": { "raw": "{{catalog_url}}/api/v1/books/{{book_id}}", "host": ["{{catalog_url}}"], "path": ["api","v1","books","{{book_id}}"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "6. Catalog · Genres",
+      "item": [
+        {
+          "name": "Create Genre",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) { pm.environment.set('genre_id', pm.response.json().id); }"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Realismo mágico\",\n  \"description\": \"Género literario hispanoamericano\"\n}" },
+            "url": { "raw": "{{catalog_url}}/api/v1/genres", "host": ["{{catalog_url}}"], "path": ["api","v1","genres"] }
+          }
+        },
+        {
+          "name": "List Genres",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{catalog_url}}/api/v1/genres", "host": ["{{catalog_url}}"], "path": ["api","v1","genres"] } }
+        },
+        {
+          "name": "Get Genre by ID",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{catalog_url}}/api/v1/genres/{{genre_id}}", "host": ["{{catalog_url}}"], "path": ["api","v1","genres","{{genre_id}}"] } }
+        },
+        {
+          "name": "Update Genre",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"description\": \"Descripción actualizada\"\n}" },
+            "url": { "raw": "{{catalog_url}}/api/v1/genres/{{genre_id}}", "host": ["{{catalog_url}}"], "path": ["api","v1","genres","{{genre_id}}"] }
+          }
+        },
+        {
+          "name": "Delete Genre",
+          "request": { "method": "DELETE", "url": { "raw": "{{catalog_url}}/api/v1/genres/{{genre_id}}", "host": ["{{catalog_url}}"], "path": ["api","v1","genres","{{genre_id}}"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "7. Reading · Progress",
+      "description": "Progreso de lectura del usuario. Todo requiere auth.",
+      "item": [
+        {
+          "name": "Start/Update Reading",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"book_id\": \"{{book_id}}\",\n  \"current_page\": 1\n}" },
+            "url": { "raw": "{{reading_url}}/api/v1/reading", "host": ["{{reading_url}}"], "path": ["api","v1","reading"] }
+          }
+        },
+        {
+          "name": "List My Progress",
+          "request": { "method": "GET", "url": { "raw": "{{reading_url}}/api/v1/reading?status=reading", "host": ["{{reading_url}}"], "path": ["api","v1","reading"], "query": [{"key":"status","value":"reading","description":"reading|paused|finished|abandoned"}] } }
+        },
+        {
+          "name": "Get Progress for Book",
+          "request": { "method": "GET", "url": { "raw": "{{reading_url}}/api/v1/reading/{{book_id}}", "host": ["{{reading_url}}"], "path": ["api","v1","reading","{{book_id}}"] } }
+        },
+        {
+          "name": "Update Progress",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"current_page\": 120,\n  \"total_time_min\": 45,\n  \"status\": \"reading\"\n}" },
+            "url": { "raw": "{{reading_url}}/api/v1/reading/{{book_id}}", "host": ["{{reading_url}}"], "path": ["api","v1","reading","{{book_id}}"] }
+          }
+        },
+        {
+          "name": "Mark as Finished",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"status\": \"finished\"\n}" },
+            "url": { "raw": "{{reading_url}}/api/v1/reading/{{book_id}}", "host": ["{{reading_url}}"], "path": ["api","v1","reading","{{book_id}}"] }
+          }
+        },
+        {
+          "name": "Delete Progress",
+          "request": { "method": "DELETE", "url": { "raw": "{{reading_url}}/api/v1/reading/{{book_id}}", "host": ["{{reading_url}}"], "path": ["api","v1","reading","{{book_id}}"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "8. Reading · Annotations",
+      "item": [
+        {
+          "name": "Create Annotation",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) { pm.environment.set('annotation_id', pm.response.json().id); }"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"book_id\": \"{{book_id}}\",\n  \"page\": 42,\n  \"highlighted_text\": \"La frase subrayada\",\n  \"personal_note\": \"Mi reflexión sobre la frase\",\n  \"color\": \"yellow\"\n}" },
+            "url": { "raw": "{{reading_url}}/api/v1/annotations", "host": ["{{reading_url}}"], "path": ["api","v1","annotations"] }
+          }
+        },
+        {
+          "name": "List Annotations by Book",
+          "request": { "method": "GET", "url": { "raw": "{{reading_url}}/api/v1/annotations?book_id={{book_id}}", "host": ["{{reading_url}}"], "path": ["api","v1","annotations"], "query": [{"key":"book_id","value":"{{book_id}}"}] } }
+        },
+        {
+          "name": "Update Annotation",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"personal_note\": \"Nota actualizada\",\n  \"color\": \"green\"\n}" },
+            "url": { "raw": "{{reading_url}}/api/v1/annotations/{{annotation_id}}", "host": ["{{reading_url}}"], "path": ["api","v1","annotations","{{annotation_id}}"] }
+          }
+        },
+        {
+          "name": "Delete Annotation",
+          "request": { "method": "DELETE", "url": { "raw": "{{reading_url}}/api/v1/annotations/{{annotation_id}}", "host": ["{{reading_url}}"], "path": ["api","v1","annotations","{{annotation_id}}"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "9. Knowledge · Topics",
+      "description": "Temas académicos disponibles para la base de conocimientos del LLM on-device.",
+      "item": [
+        {
+          "name": "List All Topics (Public)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) {",
+            "  const j = pm.response.json();",
+            "  if (j.items && j.items.length > 0) { pm.environment.set('topic_id', j.items[0].id); }",
+            "}"
+          ] } }],
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{knowledge_url}}/api/v1/topics", "host": ["{{knowledge_url}}"], "path": ["api","v1","topics"] } }
+        },
+        {
+          "name": "Get Topic by ID",
+          "request": { "auth": { "type": "noauth" }, "method": "GET", "url": { "raw": "{{knowledge_url}}/api/v1/topics/{{topic_id}}", "host": ["{{knowledge_url}}"], "path": ["api","v1","topics","{{topic_id}}"] } }
+        },
+        {
+          "name": "Select My Topics (2-5)",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"topic_ids\": [\n    \"{{topic_id}}\",\n    \"{{topic_id_2}}\"\n  ]\n}" },
+            "url": { "raw": "{{knowledge_url}}/api/v1/topics/me", "host": ["{{knowledge_url}}"], "path": ["api","v1","topics","me"] }
+          }
+        },
+        {
+          "name": "List My Topics",
+          "request": { "method": "GET", "url": { "raw": "{{knowledge_url}}/api/v1/topics/me", "host": ["{{knowledge_url}}"], "path": ["api","v1","topics","me"] } }
+        },
+        {
+          "name": "Mark Topic as Downloaded",
+          "request": { "method": "POST", "url": { "raw": "{{knowledge_url}}/api/v1/topics/me/{{topic_id}}/downloaded", "host": ["{{knowledge_url}}"], "path": ["api","v1","topics","me","{{topic_id}}","downloaded"] } }
+        },
+        {
+          "name": "Remove Topic from My Selection",
+          "request": { "method": "DELETE", "url": { "raw": "{{knowledge_url}}/api/v1/topics/me/{{topic_id}}", "host": ["{{knowledge_url}}"], "path": ["api","v1","topics","me","{{topic_id}}"] } }
+        }
+      ]
+    },
+
+    {
+      "name": "10. Knowledge · Fragments (RAG)",
+      "description": "Fragmentos descargables al celular. El celular consume estos endpoints al activar un tema.",
+      "item": [
+        {
+          "name": "List Fragments by Topic",
+          "request": { "method": "GET", "url": { "raw": "{{knowledge_url}}/api/v1/topics/{{topic_id}}/fragments?page=1&page_size=100", "host": ["{{knowledge_url}}"], "path": ["api","v1","topics","{{topic_id}}","fragments"], "query": [{"key":"page","value":"1"},{"key":"page_size","value":"100"}] } }
+        },
+        {
+          "name": "List Documents by Topic",
+          "request": { "method": "GET", "url": { "raw": "{{knowledge_url}}/api/v1/topics/{{topic_id}}/documents", "host": ["{{knowledge_url}}"], "path": ["api","v1","topics","{{topic_id}}","documents"] } }
+        },
+        {
+          "name": "Create Document (Admin)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) { pm.environment.set('document_id', pm.response.json().id); }"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"topic_id\": \"{{topic_id}}\",\n  \"title\": \"Introducción a la Física\",\n  \"source\": \"openstax\",\n  \"license\": \"cc-by\",\n  \"url_original\": \"https://openstax.org/details/books/college-physics\"\n}" },
+            "url": { "raw": "{{knowledge_url}}/api/v1/documents", "host": ["{{knowledge_url}}"], "path": ["api","v1","documents"] }
+          }
+        },
+        {
+          "name": "Create Fragment (Admin / Pipeline Python)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"document_id\": \"{{document_id}}\",\n  \"topic_id\": \"{{topic_id}}\",\n  \"text_chunk\": \"La segunda ley de Newton establece que la fuerza neta sobre un objeto es igual a su masa por su aceleración: F = ma.\",\n  \"position\": 0,\n  \"tokens\": 32,\n  \"embedding\": [0.012, -0.043, 0.521, 0.087],\n  \"hash_chunk\": \"sha256:abc123def456\"\n}" },
+            "url": { "raw": "{{knowledge_url}}/api/v1/fragments", "host": ["{{knowledge_url}}"], "path": ["api","v1","fragments"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "11. Notifications",
+      "item": [
+        {
+          "name": "List My Notifications",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 200) {",
+            "  const j = pm.response.json();",
+            "  if (j.items && j.items.length > 0) { pm.environment.set('notification_id', j.items[0].id); }",
+            "}"
+          ] } }],
+          "request": { "method": "GET", "url": { "raw": "{{notifications_url}}/api/v1/notifications?page=1&page_size=20", "host": ["{{notifications_url}}"], "path": ["api","v1","notifications"], "query": [{"key":"page","value":"1"},{"key":"page_size","value":"20"},{"key":"unread","value":"false","description":"true para solo no leídas"}] } }
+        },
+        {
+          "name": "List Unread Only",
+          "request": { "method": "GET", "url": { "raw": "{{notifications_url}}/api/v1/notifications?unread=true", "host": ["{{notifications_url}}"], "path": ["api","v1","notifications"], "query": [{"key":"unread","value":"true"}] } }
+        },
+        {
+          "name": "Create Notification (Admin/Internal)",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": [
+            "if (pm.response.code === 201) { pm.environment.set('notification_id', pm.response.json().id); }"
+          ] } }],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"type\": \"reading_reminder\",\n  \"title\": \"¡Retoma tu lectura!\",\n  \"body\": \"Te quedan 5 capítulos para terminar Cien años de soledad.\",\n  \"data\": {\n    \"book_id\": \"{{book_id}}\"\n  }\n}" },
+            "url": { "raw": "{{notifications_url}}/api/v1/notifications", "host": ["{{notifications_url}}"], "path": ["api","v1","notifications"] }
+          }
+        },
+        {
+          "name": "Mark as Read",
+          "request": { "method": "POST", "url": { "raw": "{{notifications_url}}/api/v1/notifications/{{notification_id}}/read", "host": ["{{notifications_url}}"], "path": ["api","v1","notifications","{{notification_id}}","read"] } }
+        },
+        {
+          "name": "Mark All as Read",
+          "request": { "method": "POST", "url": { "raw": "{{notifications_url}}/api/v1/notifications/read-all", "host": ["{{notifications_url}}"], "path": ["api","v1","notifications","read-all"] } }
+        },
+        {
+          "name": "Delete Notification",
+          "request": { "method": "DELETE", "url": { "raw": "{{notifications_url}}/api/v1/notifications/{{notification_id}}", "host": ["{{notifications_url}}"], "path": ["api","v1","notifications","{{notification_id}}"] } }
+        }
+      ]
+    }
+  ]
+}

@@ -1,36 +1,42 @@
+# ============================================================================
+# Tinta · docker-compose para desarrollo local
+# ----------------------------------------------------------------------------
+# Ejecutar: docker compose up -d
+# ----------------------------------------------------------------------------
+# AVISO: este archivo es SOLO para desarrollo local. NO afecta a Railway,
+#        que usa cada Dockerfile por separado.
+# ============================================================================
+
 services:
   postgres:
     image: postgres:16-alpine
     container_name: tinta-postgres
-    restart: unless-stopped
     environment:
-      POSTGRES_DB: tinta
-      POSTGRES_USER: tinta
+      POSTGRES_USER:     tinta
       POSTGRES_PASSWORD: tinta_dev_pass
+      POSTGRES_DB:       tinta
     ports:
       - "5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql:ro
+      - tinta_pg_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U tinta -d tinta"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 5
 
   redis:
     image: redis:7-alpine
     container_name: tinta-redis
-    restart: unless-stopped
     ports:
       - "6379:6379"
-    command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data
+      - tinta_redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
+      interval: 10s
+      timeout: 5s
       retries: 5
 
   identity:
@@ -38,64 +44,116 @@ services:
       context: .
       dockerfile: services/identity/Dockerfile
     container_name: tinta-identity
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    environment:
+      HTTP_PORT:    8001
+      DATABASE_URL: postgres://tinta:tinta_dev_pass@postgres:5432/tinta?sslmode=disable&search_path=identity
+      LOG_LEVEL:    debug
+      JWT_PRIVATE_KEY_PATH: /app/keys/jwt_private.pem
+      JWT_PUBLIC_KEY_PATH:  /app/keys/jwt_public.pem
     ports:
       - "8001:8001"
-    environment:
-      HTTP_PORT: 8001
-      DATABASE_URL: postgres://tinta:tinta_dev_pass@postgres:5432/tinta?sslmode=disable&search_path=identity
-      REDIS_URL: redis://redis:6379/0
-      JWT_PRIVATE_KEY_PATH: /app/keys/jwt_private.pem
-      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
-      JWT_ACCESS_TTL_MIN: 15
-      JWT_REFRESH_TTL_HOURS: 168
-      LOG_LEVEL: info
-    volumes:
-      - ./keys:/app/keys:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
 
   community:
     build:
       context: .
       dockerfile: services/community/Dockerfile
     container_name: tinta-community
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
+    environment:
+      HTTP_PORT:    8002
+      DATABASE_URL: postgres://tinta:tinta_dev_pass@postgres:5432/tinta?sslmode=disable&search_path=community
+      LOG_LEVEL:    debug
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
     ports:
       - "8002:8002"
-    environment:
-      HTTP_PORT: 8002
-      DATABASE_URL: postgres://tinta:tinta_dev_pass@postgres:5432/tinta?sslmode=disable&search_path=community
-      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
-      LOG_LEVEL: info
-    volumes:
-      - ./keys:/app/keys:ro
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
 
   recommendations:
     build:
       context: .
       dockerfile: services/recommendations/Dockerfile
     container_name: tinta-recommendations
-    restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
+    environment:
+      HTTP_PORT:    8003
+      DATABASE_URL: postgres://tinta:tinta_dev_pass@postgres:5432/tinta?sslmode=disable&search_path=recommendations
+      REDIS_URL:    redis://redis:6379/0
+      LOG_LEVEL:    debug
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
     ports:
       - "8003:8003"
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis:    { condition: service_healthy }
+    restart: unless-stopped
+
+  catalog:
+    build:
+      context: .
+      dockerfile: services/catalog/Dockerfile
+    container_name: tinta-catalog
     environment:
-      HTTP_PORT: 8003
-      DATABASE_URL: postgres://tinta:tinta_dev_pass@postgres:5432/tinta?sslmode=disable&search_path=recommendations
+      HTTP_PORT:    8004
+      DATABASE_URL: postgres://tinta:tinta_dev_pass@postgres:5432/tinta?sslmode=disable&search_path=catalog
+      LOG_LEVEL:    debug
       JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
-      LOG_LEVEL: info
-    volumes:
-      - ./keys:/app/keys:ro
+    ports:
+      - "8004:8004"
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  reading:
+    build:
+      context: .
+      dockerfile: services/reading/Dockerfile
+    container_name: tinta-reading
+    environment:
+      HTTP_PORT:    8005
+      DATABASE_URL: postgres://tinta:tinta_dev_pass@postgres:5432/tinta?sslmode=disable&search_path=reading
+      LOG_LEVEL:    debug
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+    ports:
+      - "8005:8005"
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  knowledge:
+    build:
+      context: .
+      dockerfile: services/knowledge/Dockerfile
+    container_name: tinta-knowledge
+    environment:
+      HTTP_PORT:    8006
+      DATABASE_URL: postgres://tinta:tinta_dev_pass@postgres:5432/tinta?sslmode=disable&search_path=knowledge
+      LOG_LEVEL:    debug
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+    ports:
+      - "8006:8006"
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
+
+  notifications:
+    build:
+      context: .
+      dockerfile: services/notifications/Dockerfile
+    container_name: tinta-notifications
+    environment:
+      HTTP_PORT:    8007
+      DATABASE_URL: postgres://tinta:tinta_dev_pass@postgres:5432/tinta?sslmode=disable&search_path=notifications
+      LOG_LEVEL:    debug
+      JWT_PUBLIC_KEY_PATH: /app/keys/jwt_public.pem
+    ports:
+      - "8007:8007"
+    depends_on:
+      postgres: { condition: service_healthy }
+    restart: unless-stopped
 
 volumes:
-  postgres_data:
-  redis_data:
+  tinta_pg_data:
+  tinta_redis_data:

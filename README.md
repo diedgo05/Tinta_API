@@ -1,167 +1,203 @@
-# Tinta Backend
+# Tinta · Backend (Go monorepo)
 
-Backend del proyecto **Tinta** — tutor académico privado con IA local.
+API SOA de **Tinta**, plataforma de club de lectura digital con tutor IA on-device.
 
-Esta API expone los servicios de negocio que viven en el servidor (usuarios, autenticación, clubes de lectura, recomendaciones generadas por ML). **No** ejecuta el LLM ni el RAG: eso vive dentro de la app móvil del usuario.
+## 📦 Servicios
 
-## Arquitectura
+| Servicio        | Puerto | Esquema BD       | Función                                                         |
+|-----------------|--------|------------------|-----------------------------------------------------------------|
+| identity        | 8001   | identity         | Usuarios, autenticación JWT, registro                           |
+| community       | 8002   | community        | Clubes de lectura                                               |
+| recommendations | 8003   | recommendations  | Recomendaciones del motor ML                                    |
+| **catalog**     | 8004   | catalog          | Libros, géneros, capítulos                                      |
+| **reading**     | 8005   | reading          | Progreso de lectura + anotaciones                               |
+| **knowledge**   | 8006   | knowledge        | Temas académicos y fragmentos del RAG (base de conocimientos)   |
+| **notifications** | 8007 | notifications    | Notificaciones in-app                                           |
 
-Monorepo con tres microservicios independientes en Go, siguiendo **Clean Architecture** y **Screaming Architecture**:
-
-```
-tinta-backend/
-├── services/
-│   ├── identity/         # Usuarios, login, JWT  → puerto 8001
-│   ├── community/        # Clubes de lectura     → puerto 8002
-│   └── recommendations/  # Resultados de ML      → puerto 8003
-├── shared/               # Código compartido (JWT auth, middlewares, logger)
-├── scripts/              # Scripts de inicialización y seed
-└── docs/                 # OpenAPI por servicio
-```
-
-Cada microservicio:
-- Tiene su propio binario, puerto y migraciones.
-- Usa **su propio esquema** dentro de la base PostgreSQL `tinta` (`identity`, `community`, `recommendations`).
-- Verifica JWT con la clave pública del servicio Identity (sólo Identity firma; los demás verifican).
-- Sigue capas: `domain → application → ports → infrastructure`.
-
-## Stack
-
-| Categoría | Tecnología |
-|---|---|
-| Lenguaje | Go 1.22 |
-| Web framework | Fiber v2 |
-| Acceso a datos | sqlc + pgx |
-| Migraciones | golang-migrate |
-| BD relacional | PostgreSQL 16 |
-| Caché / sesiones | Redis 7 |
-| Autenticación | JWT RS256 + Argon2id |
-| Contenedores | Docker + Docker Compose |
-
-## Prerrequisitos
-
-- **Docker** y **Docker Compose**
-- **Go 1.22+**
-- **make**
-- **openssl** (para generar llaves JWT)
-- **sqlc** ([instalación](https://docs.sqlc.dev/en/latest/overview/install.html))
-- **golang-migrate** ([instalación](https://github.com/golang-migrate/migrate/tree/master/cmd/migrate))
-
-Para instalar las herramientas de Go:
+## 🚀 Setup local
 
 ```bash
-go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
-go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-```
-
-## Levantar el proyecto (paso a paso)
-
-```bash
-# 1. Generar llaves JWT (sólo la primera vez)
+# 1. Generar llaves JWT
 make keys
 
-# 2. Levantar infraestructura (Postgres + Redis + los 3 servicios)
+# 2. Levantar todo (Postgres + Redis + 7 servicios)
 make up
 
-# 3. Aplicar migraciones a los tres esquemas
+# 3. Aplicar migraciones (Esto solo funciona con `migrate` instalado nativo)
 make migrate-all
 
-# 4. Insertar los 3 admins iniciales
+# 4. Insertar admins iniciales
 make seed
 ```
 
-## Comandos útiles
+Credenciales precargadas tras `make seed`:
+- `adrian@tinta.app` / `admin123`
+- `diego@tinta.app` / `admin123`
+- `gael@tinta.app` / `admin123`
+- `system@tinta.app` / `admin123`
 
-Lista completa: `make help`
+## 📂 Estructura
 
-```bash
-make up                  # Levantar todo
-make down                # Detener todo
-make logs SERVICE=identity   # Ver logs de un servicio
-make migrate-identity    # Migraciones sólo de identity
-make sqlc-all            # Regenerar código de sqlc en los 3 servicios
-make test                # Tests de todos los servicios
+```
+.
+├── go.work                          # Workspace Go (8 módulos)
+├── docker-compose.yml               # Local: Postgres + Redis + 7 servicios
+├── Makefile                         # Comandos make
+├── scripts/
+│   ├── init-db.sql                  # Crea 7 esquemas separados (SOA)
+│   └── seed/main.go                 # Inserta admins iniciales
+├── shared/                          # Código compartido entre servicios
+│   ├── httpx/                       # Helpers de respuesta HTTP
+│   ├── jwtauth/                     # Firmador/verificador JWT RS256
+│   ├── logger/                      # Wrapper de zerolog
+│   └── middleware/                  # RequireAuth middleware
+└── services/
+    ├── identity/                    # 8001
+    ├── community/                   # 8002
+    ├── recommendations/             # 8003
+    ├── catalog/                     # 8004 ← NUEVO
+    ├── reading/                     # 8005 ← NUEVO
+    ├── knowledge/                   # 8006 ← NUEVO
+    └── notifications/               # 8007 ← NUEVO
 ```
 
-## Versionado de la API
+Cada servicio sigue **Clean Architecture + Screaming Architecture**:
 
-Todas las rutas tienen prefijo `/api/v1`. Cuando rompamos contratos, subimos a `/api/v2` y mantenemos `v1` hasta que la app móvil migre.
-
-## Endpoints disponibles (V1 inicial)
-
-### Identity (puerto 8001)
-- `POST /api/v1/users` — Registrar usuario
-- `GET  /api/v1/users/me` — Mi perfil (requiere JWT)
-- `GET  /api/v1/users/{id}` — Perfil público
-- `PATCH /api/v1/users/me` — Actualizar mi perfil
-- `DELETE /api/v1/users/me` — Eliminar mi cuenta (ARCO)
-- `POST /api/v1/auth/login` — Login (email + password)
-- `POST /api/v1/auth/refresh` — Renovar tokens
-- `POST /api/v1/auth/logout` — Cerrar sesión
-
-### Community (puerto 8002)
-- `POST   /api/v1/clubs` — Crear club
-- `GET    /api/v1/clubs` — Listar clubes (paginado)
-- `GET    /api/v1/clubs/{id}` — Detalle
-- `PATCH  /api/v1/clubs/{id}` — Actualizar (solo creador)
-- `DELETE /api/v1/clubs/{id}` — Eliminar (solo creador)
-
-### Recommendations (puerto 8003)
-- `GET    /api/v1/recommendations` — Mis recomendaciones
-- `POST   /api/v1/recommendations/{id}/feedback` — Feedback (👍 / 👎)
-- `DELETE /api/v1/recommendations/{id}` — Descartar
-- `POST   /api/v1/recommendations/regenerate` — Forzar regeneración
-
-## Credenciales iniciales (solo desarrollo)
-
-Tras correr `make seed`:
-
-| Email | Password | Rol |
-|---|---|---|
-| adrian@tinta.app | admin123 | admin |
-| diego@tinta.app | admin123 | admin |
-| gael@tinta.app | admin123 | admin |
-| system@tinta.app | admin123 | system |
-
-> ⚠️ Cambiar estas contraseñas en producción.
-
-## Probar la API rápido (curl)
-
-```bash
-# 1. Registrar un usuario
-curl -X POST http://localhost:8001/api/v1/users \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@tinta.app","password":"test1234","name":"Test User"}'
-
-# 2. Login (devuelve access_token y refresh_token)
-TOKEN=$(curl -s -X POST http://localhost:8001/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"adrian@tinta.app","password":"admin123"}' \
-  | jq -r '.access_token')
-
-# 3. Obtener mi perfil (requiere JWT)
-curl http://localhost:8001/api/v1/users/me \
-  -H "Authorization: Bearer $TOKEN"
-
-# 4. Crear un club
-curl -X POST http://localhost:8002/api/v1/clubs \
-  -H "Authorization: Bearer $TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"name":"Cien años de soledad","description":"Lectura colectiva","is_private":false}'
-
-# 5. Listar clubes
-curl "http://localhost:8002/api/v1/clubs?page=1&page_size=10" \
-  -H "Authorization: Bearer $TOKEN"
-
-# 6. Ver mis recomendaciones (vacío hasta que el pipeline ML genere)
-curl http://localhost:8003/api/v1/recommendations \
-  -H "Authorization: Bearer $TOKEN"
+```
+services/<svc>/
+├── cmd/api/main.go                          # Composition root
+├── internal/
+│   ├── <bounded-context>/                   # Carpetas que "gritan" el dominio
+│   │   ├── domain/                          # Entidades + errores + validación
+│   │   ├── ports/                           # Interfaces (puertos)
+│   │   ├── application/                     # Casos de uso
+│   │   └── infrastructure/
+│   │       ├── postgres/                    # Repo concreto (pgx)
+│   │       └── http/                        # Handler Fiber + DTOs
+│   └── platform/                            # config, database pool, server
+├── migrations/                              # SQL up/down
+├── sqlc/                                    # queries.sql (sqlc opcional)
+├── sqlc.yaml
+├── Dockerfile                               # Multi-stage + COPY keys
+└── go.mod
 ```
 
-## Equipo
+## 🛣️ Endpoints
 
-| Matrícula | Nombre | Grupo |
-|---|---|---|
-| 233405 | Ángel Adrian Sánchez García | C |
-| 233358 | Diego Jiménez Pérez | C |
-| — | Gael Andre Hueytlelt Villalobos | C |
+### Identity (8001)
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/refresh`
+- `POST /api/v1/auth/logout`
+- `POST /api/v1/users` (registro público)
+- `GET  /api/v1/users/me`
+- `PATCH /api/v1/users/me`
+- `DELETE /api/v1/users/me`
+
+### Community (8002)
+- `POST /api/v1/clubs`
+- `GET /api/v1/clubs`
+- `GET /api/v1/clubs/:id`
+- `PATCH /api/v1/clubs/:id` (solo creador)
+- `DELETE /api/v1/clubs/:id` (solo creador)
+
+### Recommendations (8003)
+- `GET /api/v1/recommendations`
+- `POST /api/v1/recommendations/:id/feedback`
+- `DELETE /api/v1/recommendations/:id`
+- `POST /api/v1/recommendations/regenerate`
+
+### Catalog (8004) — NUEVO
+
+**Libros** (lectura pública, escritura requiere auth)
+- `GET /api/v1/books` · `?page=1&page_size=20&genre_id=&search=`
+- `GET /api/v1/books/:id`
+- `POST /api/v1/books`
+- `PATCH /api/v1/books/:id`
+- `DELETE /api/v1/books/:id`
+
+**Géneros**
+- `GET /api/v1/genres`
+- `GET /api/v1/genres/:id`
+- `POST /api/v1/genres`
+- `PATCH /api/v1/genres/:id`
+- `DELETE /api/v1/genres/:id`
+
+### Reading (8005) — NUEVO
+
+**Progreso de lectura** (todos requieren auth)
+- `POST /api/v1/reading` · iniciar/actualizar progreso (upsert)
+- `GET /api/v1/reading` · listar mi progreso · `?status=reading|paused|finished|abandoned`
+- `GET /api/v1/reading/:book_id` · progreso de un libro
+- `PATCH /api/v1/reading/:book_id`
+- `DELETE /api/v1/reading/:book_id`
+
+**Anotaciones**
+- `POST /api/v1/annotations`
+- `GET /api/v1/annotations` · `?book_id=` o `?personal_doc_id=`
+- `PATCH /api/v1/annotations/:id` (solo dueño)
+- `DELETE /api/v1/annotations/:id` (solo dueño)
+
+### Knowledge (8006) — NUEVO
+
+**Catálogo de temas (público)**
+- `GET /api/v1/topics`
+- `GET /api/v1/topics/:id`
+
+**Selección del usuario (auth)**
+- `PUT /api/v1/topics/me` · reemplaza selección · body: `{"topic_ids":[uuid,...]}` (2-5)
+- `GET /api/v1/topics/me`
+- `POST /api/v1/topics/me/:topic_id/downloaded`
+- `DELETE /api/v1/topics/me/:topic_id`
+
+**Fragmentos del RAG (auth) — el celular descarga la base de conocimientos**
+- `GET /api/v1/topics/:topic_id/fragments` · `?page=1&page_size=100`
+- `GET /api/v1/topics/:topic_id/documents`
+- `POST /api/v1/documents` (admin)
+- `POST /api/v1/fragments` (admin)
+
+### Notifications (8007) — NUEVO
+
+Todos requieren auth.
+- `GET /api/v1/notifications` · `?page=1&page_size=20&unread=true`
+- `POST /api/v1/notifications` (creación interna)
+- `POST /api/v1/notifications/:id/read`
+- `POST /api/v1/notifications/read-all`
+- `DELETE /api/v1/notifications/:id`
+
+## 🚢 Despliegue en Railway
+
+**Dockerfiles ya están configurados** con `COPY keys /app/keys` para que las llaves JWT estén dentro de la imagen. Para desplegar:
+
+1. **Crea un servicio nuevo en Railway** por cada microservicio (catalog, reading, knowledge, notifications).
+2. **Apunta cada servicio al mismo repo** y configura el path del Dockerfile (`services/<svc>/Dockerfile`).
+3. **Variables de entorno** que debes configurar en cada servicio:
+   - `HTTP_PORT` = 8004 / 8005 / 8006 / 8007 (Railway las puede sobrescribir con su `PORT`)
+   - `DATABASE_URL` = el `DATABASE_URL` del Postgres de Railway con `?search_path=<schema>` añadido
+   - `JWT_PUBLIC_KEY_PATH` = `/app/keys/jwt_public.pem`
+   - `LOG_LEVEL` = `info`
+4. **Antes del primer arranque**, ejecuta las migraciones del nuevo esquema:
+   ```sql
+   CREATE SCHEMA IF NOT EXISTS catalog;
+   CREATE SCHEMA IF NOT EXISTS reading;
+   CREATE SCHEMA IF NOT EXISTS knowledge;
+   CREATE SCHEMA IF NOT EXISTS notifications;
+   ```
+   Y aplica las migraciones SQL con `psql` o desde Railway.
+
+⚠️ **IMPORTANTE**: Lo que ya está desplegado en Railway (identity, community, recommendations) **NO se ve afectado** por estos cambios. Los nuevos servicios son independientes.
+
+## 🧪 Probar con Postman
+
+Importa los archivos en `Tinta_Postman.zip`:
+- `Tinta_API_v1.postman_collection.json`
+- `Tinta_Local.postman_environment.json`
+- `Tinta_Railway.postman_environment.json` (URLs de tus servicios desplegados)
+
+## 📋 Próximos pasos (Turno 2)
+
+- Email verification + password recovery (Identity)
+- Members + discussions (Community)
+- Pipeline ML real con Asynq + Redis (Recommendations)
+- OpenAPI/Swagger por servicio
+- Kong API Gateway
+- Tests unitarios

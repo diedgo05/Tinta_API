@@ -1,8 +1,12 @@
 go 1.22
 
 use (
+	./shared
 	./services/identity
 	./services/community
 	./services/recommendations
-	./shared
+	./services/catalog
+	./services/reading
+	./services/knowledge
+	./services/notifications
 )
