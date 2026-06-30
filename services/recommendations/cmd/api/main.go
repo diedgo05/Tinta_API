@@ -22,6 +22,9 @@ import (
 	recoPipeline "github.com/tinta/recommendations/internal/recommendation/infrastructure/pipeline"
 	recoPG "github.com/tinta/recommendations/internal/recommendation/infrastructure/postgres"
 
+	bookApp "github.com/tinta/recommendations/internal/recommendedbook/application"
+	bookPG "github.com/tinta/recommendations/internal/recommendedbook/infrastructure/postgres"
+
 	"github.com/tinta/shared/jwtauth"
 	"github.com/tinta/shared/logger"
 	"github.com/tinta/shared/middleware"
@@ -64,7 +67,13 @@ func run() error {
 	dismissUC := recoApp.NewDismissRecommendationUseCase(recoRepo)
 	regenerateUC := recoApp.NewRegenerateRecommendationsUseCase(pipeline)
 
-	recoHandler := recoHTTP.NewHandler(listUC, feedbackUC, dismissUC, regenerateUC)
+	// RecommendedBook module: enriquece las recomendaciones con título,
+	// autores y portada del libro (tabla recommended_books, poblada por el
+	// motor ML).
+	bookRepo := bookPG.NewRecommendedBookRepository(pool)
+	getBooksUC := bookApp.NewGetRecommendedBooksUseCase(bookRepo)
+
+	recoHandler := recoHTTP.NewHandler(listUC, feedbackUC, dismissUC, regenerateUC, getBooksUC)
 
 	// HTTP server
 	app := server.New("recommendations")

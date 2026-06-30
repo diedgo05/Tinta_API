@@ -8,16 +8,19 @@ import (
 	"github.com/google/uuid"
 	"github.com/tinta/recommendations/internal/recommendation/application"
 	"github.com/tinta/recommendations/internal/recommendation/domain"
+	bookApp "github.com/tinta/recommendations/internal/recommendedbook/application"
 	"github.com/tinta/shared/httpx"
 	"github.com/tinta/shared/middleware"
 )
 
 // Handler holds the recommendation use cases.
+// `getBooksUC` is optional: if nil, responses don't include book metadata.
 type Handler struct {
 	listUC       *application.ListRecommendationsUseCase
 	feedbackUC   *application.SubmitFeedbackUseCase
 	dismissUC    *application.DismissRecommendationUseCase
 	regenerateUC *application.RegenerateRecommendationsUseCase
+	getBooksUC   *bookApp.GetRecommendedBooksUseCase
 }
 
 // NewHandler constructs the recommendation HTTP handler.
@@ -26,12 +29,14 @@ func NewHandler(
 	feedback *application.SubmitFeedbackUseCase,
 	dismiss *application.DismissRecommendationUseCase,
 	regenerate *application.RegenerateRecommendationsUseCase,
+	getBooks *bookApp.GetRecommendedBooksUseCase,
 ) *Handler {
 	return &Handler{
 		listUC:       list,
 		feedbackUC:   feedback,
 		dismissUC:    dismiss,
 		regenerateUC: regenerate,
+		getBooksUC:   getBooks,
 	}
 }
 
@@ -58,9 +63,33 @@ func (h *Handler) list(c *fiber.Ctx) error {
 		return mapRecoError(c, err)
 	}
 
+	// Batch-fetch book metadata in a single query (enrichment).
+	bookIDs := make([]uuid.UUID, 0, len(result.Items))
+	for _, r := range result.Items {
+		bookIDs = append(bookIDs, r.BookID)
+	}
+	books, err := h.getBooksUC.Execute(c.Context(), bookIDs)
+	if err != nil {
+		// Enrichment failure is non-fatal: log internally and return without `book`.
+		books = nil
+	}
+
 	items := make([]RecommendationResponse, 0, len(result.Items))
 	for _, r := range result.Items {
-		items = append(items, toResponse(r))
+		resp := toResponse(r)
+		if books != nil {
+			if b, ok := books[r.BookID]; ok {
+				resp.Book = &BookInfo{
+					GoogleVolumeID: b.GoogleVolumeID,
+					Title:          b.Title,
+					Authors:        b.Authors,
+					Thumbnail:      b.Thumbnail,
+					InfoLink:       b.InfoLink,
+					Description:    b.Description,
+				}
+			}
+		}
+		items = append(items, resp)
 	}
 	return httpx.OK(c, PaginatedRecommendationsResponse{
 		Items:    items,
