@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     # ── LLM (Gemma 3 4B GGUF en servidor) ─────────────────────
     # Path absoluto al archivo .gguf dentro del container.
     # El Dockerfile lo descarga durante el build en /models/
-    llm_model_path: str = "/models/gemma-3-4b-it-q4_k_m.gguf"
+    llm_model_path: str = "/models/gemma-2-2b-it-q4_k_m.gguf"
 
     llm_context_size: int = 4096          # tokens de contexto
     llm_max_tokens: int = 512             # tokens máximos por respuesta

@@ -13,10 +13,10 @@ from pathlib import Path
 
 
 GEMMA_URL = (
-    "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF/resolve/main/"
-    "google_gemma-3-4b-it-Q4_K_M.gguf"
+    "https://huggingface.co/bartowski/gemma-2-2b-it-GGUF/resolve/main/"
+    "gemma-2-2b-it-Q4_K_M.gguf"
 )
-GEMMA_TARGET = Path("/models/gemma-3-4b-it-q4_k_m.gguf")
+GEMMA_TARGET = Path("/models/gemma-2-2b-it-q4_k_m.gguf")
 EMBED_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 
 
