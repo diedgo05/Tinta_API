@@ -67,8 +67,9 @@ async def lifespan(app: FastAPI):
     # 2. Cargar en paralelo lo que sí es paralelizable
     #    (DB primero, luego modelos secuenciales para evitar OOM)
     await repo.connect()
-    await embeddings.load()
-    await llm.load()
+    # TODO: Uncomment this when the embeddings and llm are ready
+    # await embeddings.load()
+    # await llm.load()
 
     # 3. Application services
     chat_service = ChatService(settings, llm, embeddings, repo)
