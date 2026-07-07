@@ -1,0 +1,33 @@
+# ── Web framework ──────────────────────────────────────────
+fastapi==0.115.0
+uvicorn[standard]==0.32.0
+python-multipart==0.0.12         # subida de archivos
+sse-starlette==2.1.3             # streaming Server-Sent Events
+
+# ── LLM inference on-server ────────────────────────────────
+llama-cpp-python==0.3.2          # runtime de Gemma 3 en CPU
+
+# ── Embeddings ─────────────────────────────────────────────
+sentence-transformers==3.2.1     # MiniLM multilingüe
+torch==2.5.0                     # backend de sentence-transformers
+# transformers viene como dep de sentence-transformers
+
+# ── Base de datos ──────────────────────────────────────────
+psycopg[binary,pool]==3.2.3      # driver Postgres moderno
+pgvector==0.3.6                  # extensión pgvector para Python
+
+# ── PDF extraction ─────────────────────────────────────────
+pypdf==5.1.0                     # extracción de texto de PDFs
+
+# ── Autenticación ──────────────────────────────────────────
+pyjwt[crypto]==2.9.0             # validación JWT con RSA
+cryptography==43.0.3             # dependencia de pyjwt
+
+# ── Utilidades ─────────────────────────────────────────────
+pydantic==2.9.2                  # validación de schemas
+pydantic-settings==2.6.0         # env vars tipadas
+python-dotenv==1.0.1             # cargar .env en dev
+httpx==0.27.2                    # cliente HTTP async
+
+# ── Observabilidad ─────────────────────────────────────────
+structlog==24.4.0                # logging estructurado

@@ -1,0 +1,9 @@
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "services/tutor-ai/Dockerfile"
+
+[deploy]
+healthcheckPath = "/api/v1/tutor/health"
+healthcheckTimeout = 300
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
