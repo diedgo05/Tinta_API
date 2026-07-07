@@ -1,33 +1,38 @@
 # ── Web framework ──────────────────────────────────────────
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
-python-multipart==0.0.12         # subida de archivos
-sse-starlette==2.1.3             # streaming Server-Sent Events
+python-multipart==0.0.12
+sse-starlette==2.1.3
 
 # ── LLM inference on-server ────────────────────────────────
-llama-cpp-python==0.3.2          # runtime de Gemma 3 en CPU
+llama-cpp-python==0.3.2
+
+# ── Torch CPU-only (NO CUDA) ───────────────────────────────
+# CRITICAL: instalar torch desde el index CPU-only para evitar
+# descargar ~2.5 GB de librerías NVIDIA que NO necesitamos.
+# Ver: https://pytorch.org/get-started/locally/
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.5.0+cpu
 
 # ── Embeddings ─────────────────────────────────────────────
-sentence-transformers==3.2.1     # MiniLM multilingüe
-torch==2.5.0                     # backend de sentence-transformers
-# transformers viene como dep de sentence-transformers
+sentence-transformers==3.2.1
 
 # ── Base de datos ──────────────────────────────────────────
-psycopg[binary,pool]==3.2.3      # driver Postgres moderno
-pgvector==0.3.6                  # extensión pgvector para Python
+psycopg[binary,pool]==3.2.3
+pgvector==0.3.6
 
 # ── PDF extraction ─────────────────────────────────────────
-pypdf==5.1.0                     # extracción de texto de PDFs
+pypdf==5.1.0
 
 # ── Autenticación ──────────────────────────────────────────
-pyjwt[crypto]==2.9.0             # validación JWT con RSA
-cryptography==43.0.3             # dependencia de pyjwt
+pyjwt[crypto]==2.9.0
+cryptography==43.0.3
 
 # ── Utilidades ─────────────────────────────────────────────
-pydantic==2.9.2                  # validación de schemas
-pydantic-settings==2.6.0         # env vars tipadas
-python-dotenv==1.0.1             # cargar .env en dev
-httpx==0.27.2                    # cliente HTTP async
+pydantic==2.9.2
+pydantic-settings==2.6.0
+python-dotenv==1.0.1
+httpx==0.27.2
 
 # ── Observabilidad ─────────────────────────────────────────
-structlog==24.4.0                # logging estructurado
+structlog==24.4.0
