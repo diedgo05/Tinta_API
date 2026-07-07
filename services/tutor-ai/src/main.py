@@ -68,8 +68,8 @@ async def lifespan(app: FastAPI):
     #    (DB primero, luego modelos secuenciales para evitar OOM)
     await repo.connect()
     # TODO: Uncomment this when the embeddings and llm are ready
-    # await embeddings.load()
-    # await llm.load()
+    await embeddings.load()
+    await llm.load()
 
     # 3. Application services
     chat_service = ChatService(settings, llm, embeddings, repo)
