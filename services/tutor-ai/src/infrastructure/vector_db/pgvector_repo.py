@@ -42,14 +42,22 @@ class PgVectorRepo:
         self._pool: Optional[AsyncConnectionPool] = None
 
     async def connect(self) -> None:
-        """Crea el pool de conexiones y registra pgvector."""
+        """Crea el pool de conexiones, registra pgvector y ajusta search_path."""
         if self._pool is not None:
             return
 
         log.info("pgvector.connecting")
 
-        # Callback para registrar el adaptador de vector en cada conexión nueva
+        # Callback que se ejecuta CADA vez que el pool crea una conexión nueva.
+        # Aquí ajustamos el search_path para que knowledge sea el schema por
+        # defecto (evitamos hacerlo vía URL porque psycopg 3 lo rechaza).
         async def _configure(conn: psycopg.AsyncConnection) -> None:
+            # 1. Ajustar search_path a nivel de sesión
+            async with conn.cursor() as cur:
+                await cur.execute("SET search_path TO knowledge, public")
+            await conn.commit()
+
+            # 2. Registrar el adaptador de vector (requiere la extensión activa)
             await register_vector_async(conn)
 
         self._pool = AsyncConnectionPool(
