@@ -1,8 +1,3 @@
-// Community service entrypoint.
-//
-// This service handles reading clubs, members and discussions.
-// It does NOT sign JWTs; it only verifies them with the public key
-// produced by the Identity service.
 package main
 
 import (
@@ -17,12 +12,10 @@ import (
 	clubHTTP "github.com/tinta/community/internal/club/infrastructure/http"
 	clubPG "github.com/tinta/community/internal/club/infrastructure/postgres"
 
-	// Turno 2 — member module
 	memberApp "github.com/tinta/community/internal/member/application"
 	memberHTTP "github.com/tinta/community/internal/member/infrastructure/http"
 	memberPG "github.com/tinta/community/internal/member/infrastructure/postgres"
 
-	// Turno 2 — discussion module
 	discApp "github.com/tinta/community/internal/discussion/application"
 	discHTTP "github.com/tinta/community/internal/discussion/infrastructure/http"
 	discPG "github.com/tinta/community/internal/discussion/infrastructure/postgres"
@@ -64,17 +57,19 @@ func run() error {
 		return fmt.Errorf("load jwt verifier: %w", err)
 	}
 
+	// ---------- Member repository (needed by club creation) ----------
+	memberRepo := memberPG.NewMemberRepository(pool)
+
 	// ---------- Club module ----------
 	clubRepo := clubPG.NewClubRepository(pool)
-	createUC := clubApp.NewCreateClubUseCase(clubRepo)
+	createUC := clubApp.NewCreateClubUseCase(clubRepo, memberRepo)
 	listUC := clubApp.NewListClubsUseCase(clubRepo)
 	getUC := clubApp.NewGetClubUseCase(clubRepo)
 	updateUC := clubApp.NewUpdateClubUseCase(clubRepo)
 	deleteUC := clubApp.NewDeleteClubUseCase(clubRepo)
 	clubHandler := clubHTTP.NewHandler(createUC, listUC, getUC, updateUC, deleteUC)
 
-	// ---------- Turno 2 · Member module ----------
-	memberRepo := memberPG.NewMemberRepository(pool)
+	// ---------- Member module (use cases + handler) ----------
 	joinUC := memberApp.NewJoinClubUseCase(memberRepo)
 	leaveUC := memberApp.NewLeaveClubUseCase(memberRepo)
 	listClubMembersUC := memberApp.NewListClubMembersUseCase(memberRepo)
@@ -82,7 +77,7 @@ func run() error {
 	checkMembershipUC := memberApp.NewCheckMembershipUseCase(memberRepo)
 	memberHandler := memberHTTP.NewHandler(joinUC, leaveUC, listClubMembersUC, listMyClubsUC, checkMembershipUC)
 
-	// ---------- Turno 2 · Discussion module ----------
+	// ---------- Discussion module ----------
 	discRepo := discPG.NewDiscussionRepository(pool)
 	postDiscUC := discApp.NewPostDiscussionUseCase(discRepo, memberRepo)
 	listDiscUC := discApp.NewListDiscussionsUseCase(discRepo, memberRepo)

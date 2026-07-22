@@ -1,1 +1,15 @@
+keys/
+services/tutor-ai/.env
+.venv/
 
+.env
+.env.local
+**/.env
+**/.env.local
+
+reports/
+scripts/run-bearer.ps1
+scripts/run-bearer.sh
+scripts/run-zap-passive.ps1
+scripts/run-zap-active.sh
+scripts/urls.txt
