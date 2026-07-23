@@ -1,15 +1,6 @@
-"""
-Servicio de aplicación del chat con RAG.
-
-Orquesta:
-    1. Si hay document_id: recuperar chunks relevantes (RAG)
-    2. Armar el system prompt (con o sin contexto RAG)
-    3. Construir el prompt de Gemma con historial
-    4. Ejecutar generación en streaming
-    5. Al final, incluir las fuentes usadas
-"""
 from __future__ import annotations
 
+import re
 from typing import AsyncIterator, Optional
 from uuid import UUID
 
@@ -17,13 +8,40 @@ import structlog
 
 from src.config import Settings
 from src.domain.entities import ChatMessage, ChunkWithScore, Source
-from src.domain.prompts import build_gemma_chat_prompt, build_system_prompt
+from src.domain.prompts import build_gemma_chat_prompt, build_system_prompt, OUT_OF_SCOPE_MESSAGE
 from src.infrastructure.embeddings.minilm_model import EmbeddingsModel
 from src.infrastructure.llm.llama_runner import LlamaRunner
 from src.infrastructure.vector_db.pgvector_repo import PgVectorRepo
-from src.domain.prompts import build_gemma_chat_prompt, build_system_prompt, OUT_OF_SCOPE_MESSAGE
 
 log = structlog.get_logger()
+
+
+# ── Detección de preguntas "amplias" sobre todo el documento ──────
+_BROAD_QUESTION_PATTERNS = [
+    r"resum(e|en|ir)",
+    r"ideas?\s+principal",
+    r"tema\s+central",
+    r"de\s+qu[ée]\s+trata",
+    r"sobre\s+qu[ée]\s+trata",
+    r"ejemplos?\s+del?\s+concepto",
+    r"conceptos?\s+clave",
+    r"qu[ée]\s+dice\s+el\s+documento",
+    r"contenido\s+del\s+documento",
+    r"explica(me)?\s+el\s+documento",
+    r"de\s+qu[ée]\s+se\s+trata",
+]
+_broad_question_regex = re.compile(
+    "|".join(_BROAD_QUESTION_PATTERNS), re.IGNORECASE
+)
+
+
+def _is_broad_question(question: str) -> bool:
+    """Heurística simple, no un clasificador. Cubre los casos comunes
+    de preguntas meta sobre el documento (resumen, temas, ejemplos).
+    No es perfecta: una pregunta amplia pero genuinamente ajena al
+    documento ("resume las noticias de hoy") pasaría el filtro igual,
+    pero es un caso raro y el costo de ese falso positivo es bajo."""
+    return bool(_broad_question_regex.search(question))
 
 
 class ChatService:
@@ -49,36 +67,46 @@ class ChatService:
         Genera la respuesta del tutor como stream de eventos.
         ...
         """
-        # 1. RAG: recuperar chunks si hay documento
         chunks: list[ChunkWithScore] = []
         document_requested = document_id is not None
+        is_broad = _is_broad_question(question)
 
         if document_requested:
             try:
                 query_vec = await self._embeddings.encode(question)
+
+                # Preguntas amplias ("resume", "tema central", etc.)
+                effective_min_similarity = (
+                    0.0 if is_broad else self._settings.min_similarity
+                )
+                effective_top_k = (
+                    self._settings.top_k_chunks * 2
+                    if is_broad
+                    else self._settings.top_k_chunks
+                )
+
                 chunks = await self._repo.search_similar_chunks(
                     query_embedding=query_vec,
                     document_id=document_id,
-                    top_k=self._settings.top_k_chunks,
-                    min_similarity=self._settings.min_similarity,
+                    top_k=effective_top_k,
+                    min_similarity=effective_min_similarity,
                 )
                 log.info(
                     "chat.rag_retrieved",
                     doc_id=str(document_id),
                     chunks_found=len(chunks),
+                    is_broad_question=is_broad,
                 )
             except Exception:
                 log.exception("chat.rag_failed", doc_id=str(document_id))
 
-        # ── NUEVO: gate de relevancia ────────────────────────────────
-        # Si el usuario pidió RAG sobre un documento (mandó document_id)
-        # pero NINGÚN chunk superó el umbral de similitud, la pregunta no
-        # tiene relación con el documento. En vez de caer silenciosamente
-        # al modo de conocimiento general (que es lo que causaba que
-        # preguntas ajenas al PDF recibieran respuestas alucinadas), se
-        # corta aquí mismo, sin llamar al LLM.
+        # Gate de relevancia: solo aplica a preguntas puntuales.
         if document_requested and not chunks:
-            log.info("chat.rag_out_of_scope", doc_id=str(document_id), question=question)
+            log.info(
+                "chat.rag_out_of_scope",
+                doc_id=str(document_id),
+                question=question,
+            )
             yield {"token": OUT_OF_SCOPE_MESSAGE}
             yield {"done": True, "sources": []}
             return
