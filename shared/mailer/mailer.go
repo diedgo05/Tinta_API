@@ -1,6 +1,3 @@
-// Package mailer sends transactional emails (verification codes, password
-// resets) via SMTP. Diseñado para usar Gmail SMTP con tintaappmovil@gmail.com,
-// pero funciona con cualquier proveedor SMTP estándar (STARTTLS, puerto 587).
 package mailer
 
 import (
@@ -8,31 +5,22 @@ import (
 	"net/smtp"
 )
 
-// Mailer es la interfaz que consumen los casos de uso (verification,
-// passwordreset) — así no dependen directamente de SMTP y son fáciles
-// de probar con un mock.
 type Mailer interface {
 	Send(to, subject, htmlBody string) error
 }
 
-// SMTPMailer implementa Mailer usando net/smtp con autenticación PLAIN
-// sobre STARTTLS (el esquema que usa Gmail en smtp.gmail.com:587).
 type SMTPMailer struct {
 	host     string
 	port     string
-	user     string // ej. tintaappmovil@gmail.com
-	password string // App Password de Gmail (NO la contraseña normal de la cuenta)
-	from     string // remitente que ve el usuario, normalmente igual a `user`
+	user     string
+	password string
+	from     string
 }
 
-// NewSMTPMailer construye un mailer SMTP. host/port apuntan al servidor
-// (smtp.gmail.com / 587 para Gmail), user/password son las credenciales
-// de autenticación, y from es el remitente visible en el correo.
 func NewSMTPMailer(host, port, user, password, from string) *SMTPMailer {
 	return &SMTPMailer{host: host, port: port, user: user, password: password, from: from}
 }
 
-// Send manda un correo HTML simple a un solo destinatario.
 func (m *SMTPMailer) Send(to, subject, htmlBody string) error {
 	addr := fmt.Sprintf("%s:%s", m.host, m.port)
 	auth := smtp.PlainAuth("", m.user, m.password, m.host)
@@ -49,8 +37,6 @@ func (m *SMTPMailer) Send(to, subject, htmlBody string) error {
 	return nil
 }
 
-// VerificationCodeEmail arma el HTML del correo con el código de
-// verificación de 6 dígitos, con el mismo look & feel simple de la app.
 func VerificationCodeEmail(code string) (subject, htmlBody string) {
 	subject = "Tu código de verificación de Tinta"
 	htmlBody = fmt.Sprintf(`

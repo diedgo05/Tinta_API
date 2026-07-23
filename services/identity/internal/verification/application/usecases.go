@@ -1,4 +1,3 @@
-// Package application contains the email-verification use cases.
 package application
 
 import (
@@ -13,8 +12,6 @@ import (
 	"github.com/tinta/shared/mailer"
 )
 
-// ---------- Request code (by authenticated user) ----------
-
 type RequestCodeUseCase struct {
 	repo   ports.VerificationRepository
 	mailer mailer.Mailer
@@ -25,12 +22,6 @@ func NewRequestCodeUseCase(r ports.VerificationRepository, m mailer.Mailer, log 
 	return &RequestCodeUseCase{repo: r, mailer: m, log: log}
 }
 
-// Execute generates a fresh code for the authenticated user, lo guarda, y
-// lo manda por correo de verdad a tintaappmovil@gmail.com → email del
-// usuario. Sigue regresando el código en el VerificationStatus para que
-// el equipo pueda seguir viéndolo en la respuesta HTTP mientras se
-// confirma que el envío por SMTP funciona en producción; una vez
-// confirmado, ese campo se puede quitar del handler HTTP por seguridad.
 func (uc *RequestCodeUseCase) Execute(ctx context.Context, userID uuid.UUID) (*domain.VerificationStatus, error) {
 	st, err := uc.repo.GetUserByID(ctx, userID)
 	if err != nil {
@@ -49,13 +40,8 @@ func (uc *RequestCodeUseCase) Execute(ctx context.Context, userID uuid.UUID) (*d
 		return nil, err
 	}
 
-	// Envío real por correo — al email con el que el usuario se registró.
 	subject, body := mailer.VerificationCodeEmail(code)
 	if err := uc.mailer.Send(st.Email, subject, body); err != nil {
-		// No se revierte el código guardado: el usuario puede seguir
-		// usándolo si de alguna forma lo obtiene (ej. lo ve en logs de
-		// desarrollo), pero sí registramos el fallo para dar
-		// seguimiento — un correo que no llega es un problema real.
 		uc.log.Error().Err(err).Str("email", st.Email).Msg("failed to send verification email")
 	} else {
 		uc.log.Info().Str("email", st.Email).Msg("verification email sent")
@@ -65,8 +51,6 @@ func (uc *RequestCodeUseCase) Execute(ctx context.Context, userID uuid.UUID) (*d
 	st.ExpiresAt = &expires
 	return st, nil
 }
-
-// ---------- Verify code ----------
 
 type VerifyCodeInput struct {
 	UserID uuid.UUID
@@ -95,7 +79,6 @@ func (uc *VerifyCodeUseCase) Execute(ctx context.Context, in VerifyCodeInput) er
 	if time.Now().After(*expires) {
 		return domain.ErrExpiredCode
 	}
-	// constant-time-ish comparison; codes are short, so this is fine.
 	if strings.TrimSpace(in.Code) != stored {
 		return domain.ErrInvalidCode
 	}

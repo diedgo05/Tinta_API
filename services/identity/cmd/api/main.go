@@ -1,14 +1,3 @@
-// Identity service entrypoint.
-//
-// This service is responsible for:
-//   - User registration and profile management
-//   - Authentication via email + password
-//   - Issuance and rotation of JWT tokens
-//   - Email verification (Turno 2)
-//   - Password recovery (Turno 2)
-//
-// It is the ONLY service that signs JWTs; the rest only verify them with
-// the public key.
 package main
 
 import (
@@ -33,12 +22,10 @@ import (
 	userHTTP "github.com/tinta/identity/internal/user/infrastructure/http"
 	userPG "github.com/tinta/identity/internal/user/infrastructure/postgres"
 
-	// Turno 2 — email verification
 	verifApp "github.com/tinta/identity/internal/verification/application"
 	verifHTTP "github.com/tinta/identity/internal/verification/infrastructure/http"
 	verifPG "github.com/tinta/identity/internal/verification/infrastructure/postgres"
 
-	// Turno 2 — password reset
 	resetApp "github.com/tinta/identity/internal/passwordreset/application"
 	resetHTTP "github.com/tinta/identity/internal/passwordreset/infrastructure/http"
 	resetPG "github.com/tinta/identity/internal/passwordreset/infrastructure/postgres"
@@ -57,7 +44,6 @@ func main() {
 }
 
 func run() error {
-	// ---------- Configuration ----------
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
@@ -65,7 +51,6 @@ func run() error {
 	log := logger.New("identity", cfg.LogLevel)
 	log.Info().Int("port", cfg.HTTPPort).Msg("starting identity service")
 
-	// ---------- Database ----------
 	ctx := context.Background()
 	pool, err := database.NewPostgresPool(ctx, cfg.DatabaseURL)
 	if err != nil {
@@ -74,7 +59,6 @@ func run() error {
 	defer pool.Close()
 	log.Info().Msg("postgres connected")
 
-	// ---------- JWT ----------
 	signer, err := jwtauth.NewSigner(cfg.JWTPrivateKeyPath, cfg.JWTAccessTTL, cfg.JWTRefreshTTL)
 	if err != nil {
 		return fmt.Errorf("load jwt signer: %w", err)
@@ -84,7 +68,6 @@ func run() error {
 		return fmt.Errorf("load jwt verifier: %w", err)
 	}
 
-	// ---------- User module ----------
 	userRepo := userPG.NewUserRepository(pool)
 	hasher := userArgon2.New()
 
@@ -94,7 +77,6 @@ func run() error {
 	deleteUserUC := userApp.NewDeleteUserUseCase(userRepo)
 	userHandler := userHTTP.NewHandler(createUserUC, getUserUC, updateUserUC, deleteUserUC)
 
-	// ---------- Auth module ----------
 	refreshRepo := authPG.NewRefreshTokenRepository(pool)
 	signerAdapter := authJWT.NewSignerAdapter(signer)
 
@@ -103,7 +85,6 @@ func run() error {
 	logoutUC := authApp.NewLogoutUseCase(refreshRepo)
 	authHandler := authHTTP.NewHandler(loginUC, refreshUC, logoutUC)
 
-	// ---------- Turno 2 · Verification module ----------
 	verifRepo := verifPG.NewVerificationRepository(pool)
 
 	smtpMailer := mailer.NewSMTPMailer(
@@ -114,15 +95,12 @@ func run() error {
 	verifyCodeUC := verifApp.NewVerifyCodeUseCase(verifRepo)
 	verifHandler := verifHTTP.NewHandler(requestCodeUC, verifyCodeUC)
 
-	// ---------- Turno 2 · Password reset module ----------
 	resetRepo := resetPG.NewPasswordResetRepository(pool)
-	// Adapter: convert userArgon2.Hasher to the reset module's hasher interface.
 	resetHasher := &argon2HasherAdapter{h: hasher}
 	requestResetUC := resetApp.NewRequestResetUseCase(resetRepo, log)
 	confirmResetUC := resetApp.NewConfirmResetUseCase(resetRepo, resetHasher)
 	resetHandler := resetHTTP.NewHandler(requestResetUC, confirmResetUC)
 
-	// ---------- HTTP server ----------
 	app := server.New("identity")
 
 	v1 := app.Group("/api/v1")
@@ -130,9 +108,8 @@ func run() error {
 	userHandler.Register(v1, authMW)
 	authHandler.Register(v1)
 	verifHandler.Register(v1, authMW)
-	resetHandler.Register(v1) // public endpoints (no auth)
+	resetHandler.Register(v1)
 
-	// ---------- Graceful shutdown ----------
 	go func() {
 		if err := app.Listen(fmt.Sprintf(":%d", cfg.HTTPPort)); err != nil {
 			log.Error().Err(err).Msg("server stopped")
@@ -153,8 +130,6 @@ func run() error {
 	return nil
 }
 
-// argon2HasherAdapter bridges the user-module's Argon2 hasher to the
-// password-reset module's expected interface (which only needs Hash()).
 type argon2HasherAdapter struct {
 	h *userArgon2.Hasher
 }

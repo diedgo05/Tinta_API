@@ -1,4 +1,3 @@
-// Package config loads service configuration from environment variables.
 package config
 
 import (
@@ -8,7 +7,6 @@ import (
 	"time"
 )
 
-// Config holds the runtime configuration of the Identity service.
 type Config struct {
 	HTTPPort           int
 	DatabaseURL        string
@@ -19,7 +17,6 @@ type Config struct {
 	JWTRefreshTTL      time.Duration
 	LogLevel           string
 
-	// SMTP — envío real de correos (código de verificación, etc.)
 	SMTPHost     string
 	SMTPPort     string
 	SMTPUser     string
@@ -27,7 +24,6 @@ type Config struct {
 	SMTPFrom     string
 }
 
-// Load reads configuration from environment variables, providing sane defaults.
 func Load() (*Config, error) {
 	cfg := &Config{
 		HTTPPort:          getEnvInt("HTTP_PORT", 8001),
@@ -42,7 +38,7 @@ func Load() (*Config, error) {
 		SMTPHost:     getEnv("SMTP_HOST", "smtp.gmail.com"),
 		SMTPPort:     getEnv("SMTP_PORT", "587"),
 		SMTPUser:     getEnv("SMTP_USER", "tintaappmovil@gmail.com"),
-		SMTPPassword: getEnv("SMTP_PASSWORD", ""), // App Password de Gmail — SIEMPRE por variable de entorno, nunca hardcodeado
+		SMTPPassword: getEnv("SMTP_PASSWORD", ""),
 		SMTPFrom:     getEnv("SMTP_FROM", "tintaappmovil@gmail.com"),
 	}
 	if cfg.DatabaseURL == "" {
