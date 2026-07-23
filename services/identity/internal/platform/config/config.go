@@ -18,6 +18,13 @@ type Config struct {
 	JWTAccessTTL       time.Duration
 	JWTRefreshTTL      time.Duration
 	LogLevel           string
+
+	// SMTP — envío real de correos (código de verificación, etc.)
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUser     string
+	SMTPPassword string
+	SMTPFrom     string
 }
 
 // Load reads configuration from environment variables, providing sane defaults.
@@ -31,6 +38,12 @@ func Load() (*Config, error) {
 		JWTAccessTTL:      time.Duration(getEnvInt("JWT_ACCESS_TTL_MIN", 15)) * time.Minute,
 		JWTRefreshTTL:     time.Duration(getEnvInt("JWT_REFRESH_TTL_HOURS", 168)) * time.Hour,
 		LogLevel:          getEnv("LOG_LEVEL", "info"),
+
+		SMTPHost:     getEnv("SMTP_HOST", "smtp.gmail.com"),
+		SMTPPort:     getEnv("SMTP_PORT", "587"),
+		SMTPUser:     getEnv("SMTP_USER", "tintaappmovil@gmail.com"),
+		SMTPPassword: getEnv("SMTP_PASSWORD", ""), // App Password de Gmail — SIEMPRE por variable de entorno, nunca hardcodeado
+		SMTPFrom:     getEnv("SMTP_FROM", "tintaappmovil@gmail.com"),
 	}
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("DATABASE_URL is required")

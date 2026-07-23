@@ -10,22 +10,27 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/tinta/identity/internal/verification/domain"
 	"github.com/tinta/identity/internal/verification/ports"
+	"github.com/tinta/shared/mailer"
 )
 
 // ---------- Request code (by authenticated user) ----------
 
 type RequestCodeUseCase struct {
-	repo ports.VerificationRepository
-	log  zerolog.Logger
+	repo   ports.VerificationRepository
+	mailer mailer.Mailer
+	log    zerolog.Logger
 }
 
-func NewRequestCodeUseCase(r ports.VerificationRepository, log zerolog.Logger) *RequestCodeUseCase {
-	return &RequestCodeUseCase{repo: r, log: log}
+func NewRequestCodeUseCase(r ports.VerificationRepository, m mailer.Mailer, log zerolog.Logger) *RequestCodeUseCase {
+	return &RequestCodeUseCase{repo: r, mailer: m, log: log}
 }
 
-// Execute generates a fresh code for the authenticated user and saves it.
-// Returns the code + expires_at in the status so the HTTP layer can echo
-// them back to the client (since we don't have a real SMTP provider).
+// Execute generates a fresh code for the authenticated user, lo guarda, y
+// lo manda por correo de verdad a tintaappmovil@gmail.com → email del
+// usuario. Sigue regresando el código en el VerificationStatus para que
+// el equipo pueda seguir viéndolo en la respuesta HTTP mientras se
+// confirma que el envío por SMTP funciona en producción; una vez
+// confirmado, ese campo se puede quitar del handler HTTP por seguridad.
 func (uc *RequestCodeUseCase) Execute(ctx context.Context, userID uuid.UUID) (*domain.VerificationStatus, error) {
 	st, err := uc.repo.GetUserByID(ctx, userID)
 	if err != nil {
@@ -44,12 +49,17 @@ func (uc *RequestCodeUseCase) Execute(ctx context.Context, userID uuid.UUID) (*d
 		return nil, err
 	}
 
-	// Pretend-send via log (would be SMTP in real production).
-	uc.log.Info().
-		Str("email", st.Email).
-		Str("code", code).
-		Time("expires_at", expires).
-		Msg("verification code issued (would be emailed in production)")
+	// Envío real por correo — al email con el que el usuario se registró.
+	subject, body := mailer.VerificationCodeEmail(code)
+	if err := uc.mailer.Send(st.Email, subject, body); err != nil {
+		// No se revierte el código guardado: el usuario puede seguir
+		// usándolo si de alguna forma lo obtiene (ej. lo ve en logs de
+		// desarrollo), pero sí registramos el fallo para dar
+		// seguimiento — un correo que no llega es un problema real.
+		uc.log.Error().Err(err).Str("email", st.Email).Msg("failed to send verification email")
+	} else {
+		uc.log.Info().Str("email", st.Email).Msg("verification email sent")
+	}
 
 	st.Code = code
 	st.ExpiresAt = &expires

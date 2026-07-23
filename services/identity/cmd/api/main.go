@@ -45,6 +45,7 @@ import (
 
 	"github.com/tinta/shared/jwtauth"
 	"github.com/tinta/shared/logger"
+	"github.com/tinta/shared/mailer"
 	"github.com/tinta/shared/middleware"
 )
 
@@ -104,7 +105,12 @@ func run() error {
 
 	// ---------- Turno 2 · Verification module ----------
 	verifRepo := verifPG.NewVerificationRepository(pool)
-	requestCodeUC := verifApp.NewRequestCodeUseCase(verifRepo, log)
+
+	smtpMailer := mailer.NewSMTPMailer(
+		cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUser, cfg.SMTPPassword, cfg.SMTPFrom,
+	)
+
+	requestCodeUC := verifApp.NewRequestCodeUseCase(verifRepo, smtpMailer, log)
 	verifyCodeUC := verifApp.NewVerifyCodeUseCase(verifRepo)
 	verifHandler := verifHTTP.NewHandler(requestCodeUC, verifyCodeUC)
 
