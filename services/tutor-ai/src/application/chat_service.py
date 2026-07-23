@@ -21,6 +21,7 @@ from src.domain.prompts import build_gemma_chat_prompt, build_system_prompt
 from src.infrastructure.embeddings.minilm_model import EmbeddingsModel
 from src.infrastructure.llm.llama_runner import LlamaRunner
 from src.infrastructure.vector_db.pgvector_repo import PgVectorRepo
+from src.domain.prompts import build_gemma_chat_prompt, build_system_prompt, OUT_OF_SCOPE_MESSAGE
 
 log = structlog.get_logger()
 
@@ -46,15 +47,13 @@ class ChatService:
     ) -> AsyncIterator[dict]:
         """
         Genera la respuesta del tutor como stream de eventos.
-
-        Cada evento es un dict que la capa API convertirá a SSE. Formatos:
-            {"token": "palabra "}
-            {"done": true, "sources": [...]}
-            {"error": "mensaje"}
+        ...
         """
         # 1. RAG: recuperar chunks si hay documento
         chunks: list[ChunkWithScore] = []
-        if document_id is not None:
+        document_requested = document_id is not None
+
+        if document_requested:
             try:
                 query_vec = await self._embeddings.encode(question)
                 chunks = await self._repo.search_similar_chunks(
@@ -70,7 +69,19 @@ class ChatService:
                 )
             except Exception:
                 log.exception("chat.rag_failed", doc_id=str(document_id))
-                # Continuar sin RAG en vez de fallar la respuesta
+
+        # ── NUEVO: gate de relevancia ────────────────────────────────
+        # Si el usuario pidió RAG sobre un documento (mandó document_id)
+        # pero NINGÚN chunk superó el umbral de similitud, la pregunta no
+        # tiene relación con el documento. En vez de caer silenciosamente
+        # al modo de conocimiento general (que es lo que causaba que
+        # preguntas ajenas al PDF recibieran respuestas alucinadas), se
+        # corta aquí mismo, sin llamar al LLM.
+        if document_requested and not chunks:
+            log.info("chat.rag_out_of_scope", doc_id=str(document_id), question=question)
+            yield {"token": OUT_OF_SCOPE_MESSAGE}
+            yield {"done": True, "sources": []}
+            return
 
         # 2. Armar prompts
         system_prompt = build_system_prompt(chunks if chunks else None)

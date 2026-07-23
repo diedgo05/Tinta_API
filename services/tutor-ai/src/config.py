@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     chunk_size: int = 500                 # palabras por chunk
     chunk_overlap: int = 50               # palabras de solapamiento
     top_k_chunks: int = 3                 # cuántos chunks recuperar por query
-    min_similarity: float = 0.3           # umbral de similitud coseno
+    min_similarity: float = 0.38           # umbral de similitud coseno
 
     # ── Autenticación (JWT compartido con identity service) ───
     # Se comparte la clave pública RSA del identity para validar tokens.

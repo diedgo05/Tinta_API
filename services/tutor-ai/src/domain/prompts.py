@@ -23,16 +23,29 @@ Reglas:
 RAG_INSTRUCTION_TEMPLATE = """
 
 Tienes acceso a los siguientes fragmentos del documento que el estudiante está leyendo.
-Úsalos como fuente principal para responder. Si citas información específica, indica
-la página entre paréntesis: (p. 15).
+Estos fragmentos son tu ÚNICA fuente de información para esta respuesta. Si citas
+información específica, indica la página entre paréntesis: (p. 15).
 
 ═══════════════════════════════════════════════════════════════
 FRAGMENTOS DEL DOCUMENTO:
 {context}
 ═══════════════════════════════════════════════════════════════
 
-Si la pregunta del estudiante no puede responderse con estos fragmentos, dilo claramente
-y ofrece lo que sí puedas responder con tu conocimiento general."""
+IMPORTANTE: Responde ÚNICAMENTE con base en estos fragmentos. Si la pregunta del
+estudiante no puede responderse con esta información, dilo explícitamente:
+"No encuentro esa información en el documento." NO uses tu conocimiento general
+para completar la respuesta, aunque lo conozcas."""
+
+
+# ── Mensaje cuando la pregunta no tiene relación con el documento ──
+# Se usa ANTES de llamar al LLM, cuando ningún chunk recuperado superó
+# el umbral de similitud mínima. Evita que el modelo alucine una
+# respuesta sobre un tema completamente ajeno al PDF.
+OUT_OF_SCOPE_MESSAGE = (
+    "Esa pregunta no parece estar relacionada con el documento que estás "
+    "leyendo. Intenta preguntarme algo sobre su contenido, o si quieres "
+    "ayuda con otro tema, dímelo explícitamente."
+)
 
 
 def build_system_prompt(chunks: list[ChunkWithScore] | None) -> str:
@@ -54,7 +67,6 @@ def build_system_prompt(chunks: list[ChunkWithScore] | None) -> str:
     context = "\n\n".join(context_parts)
     rag_addition = RAG_INSTRUCTION_TEMPLATE.format(context=context)
     return BASE_SYSTEM_PROMPT + rag_addition
-
 
 def build_gemma_chat_prompt(
     system_prompt: str,
